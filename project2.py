@@ -8,6 +8,7 @@ class Tarama:
     def __init__(self):
         ## {makaleno1:'makaleadı1', makaleno2:'makaleadı2'...}
         self.makaleno_makaleadi = {}
+        ## wordlocations[herhangi_bir_kelime] = { makaleno1:[loc1, loc2, ...., locN],   makaleno2:[loc1, loc2, ...,locM], ....... } 
         self.wordlocation = {}
         self.citations = {}
         self.citationcounts = {}
@@ -36,63 +37,72 @@ class Tarama:
     #         self.citationcounts.close()
 
     def indexleme(self, path='metadata'):
-        # istenilen dizindeki tüm dosya yollarını alan döngü
+        # loop taking all paths in the directory
         for r, d, f in os.walk(path):
             for file in f:
                 self.files.append(os.path.join(r, file))
-        # kullanıcıya yapılacak olan işlem bilgisini veriyoruz
+        # transaction information
         print("\n*** Makaleler İndexleniyor ***")
-        # dosya yollarını tek tek alıp işlemler sokacak olan döngü
+        
         for dosya_adi in self.files:
-            # makale numarasını alıyoruz
+            # get the article number
             makale_no = re.search('\d+', dosya_adi).group()
-            # yapılan işlemin "tamamlanması" hakkında kullanıcıya bilgi veren koşullar
+            
+            # percentage completion of the transaction
             if makale_no == "9301084":
                 print('\n*** %25 Tamamlandı ***')
             elif makale_no == "9310073":
                 print('*** %50 Tamamlandı ***')
             elif makale_no == "9406036":
                 print('*** %75 Tamamlandı ***')
-            # dosyaları okutuyoruz
+                
+            # reading file
             icerik = open(dosya_adi, "r").read()
-            # dosyaların içinde makale adlarını çekebilmek için
+            
+            # pull article names
             baslik = re.search("Title:([\s\S]+)Authors?:", icerik).group(1)
             baslik = "".join(baslik.split("\n"))
-            # istenilen çıktıyı verebilmek için başlıkları sözlüğe atıyoruz
+            
+            # creating the dictionary
             self.makaleno_makaleadi[makale_no] = baslik
-            # makalenin özet kısmını yakalıyoruz
+            
+            # capture the abstract part of the article
             ozet_ayiraci = re.compile(r"[^-]\n\\([\s\S]+)\\$")
             ozet = re.search(ozet_ayiraci, icerik).group(1)
-            # başlık ve özetteki kelimeleri yakalıyoruz, büyük harflerden kurtuluyoruz
+            
+            # catch the words in the title and summary, we get rid of capital letters
             kelimeler = re.findall('\w+', baslik.lower() + ozet.lower())
-            # kelimeleri işlem yapacağımız sözlüklere istenildiği gibi yerleştiriyoruz
+            
+            # creating the dictionary
             for i in range(len(kelimeler)):
                 self.wordlocation.setdefault(kelimeler[i], {})
                 self.wordlocation[kelimeler[i]].setdefault(makale_no, [])
                 self.wordlocation[kelimeler[i]][makale_no].append(i)
-        # kullanıcıya yapılan işlemin sonlandığı bilgisini veriyoruz
+        
         print('\n*** Makaleler İndexlendi ***')
-        # atıf verilerinin olduğu dosyayı okuyoruz
+        # reading citations
         veriler = open('citations.txt', "r").read()
+        
         # atıf verilerini tuplelar listesine dönüştürüyoruz
         atiflar = re.findall("\n(\d+)\t(\d+)", veriler)
-        # kullanıcıya yapılacak olan işlem bilgisini veriyoruz
+        
         print('\n*** Atıf İndexlemesi Yapılıyor ***')
-        # atıf verilerini tek tek işleyecek döngü
+        
+        # loop to process citation data one by one
         for atif_yapan, atif_alan in atiflar:
-            # kullanıcıya yapılan işlemin "tamamlanması" hakkında bilgi verme amaçlı koşullar
+            ## transaction information
             # if atif_yapan == "9810138":
             #     print('\n*** %25 Tamamlandı ***')
             # elif atif_yapan == "105034":
             #     print('*** %50 Tamamlandı ***')
             # elif atif_yapan == "9911054":
             #     print('*** %75 Tamamlandı ***')
-            # atıf verilerini işlem yapılacak sözlüklere istenildiği gibi yerleştiriyoruz
+            ## creating the dictionary
             self.citations.setdefault(atif_alan, [])
             self.citations[atif_alan].append(atif_yapan)
             self.citationcounts.setdefault(atif_alan, 0)
             self.citationcounts[atif_alan] += 1
-        # kullanıcıya yapılan işlemin sonlandığı bilgisini veriyoruz
+        
         print('\n*** İndexleme İşlemleri Bitti ***')
 
     def getmatchingpages(self, q):
@@ -124,21 +134,21 @@ class Tarama:
         return totalscores
 
     def query(self, q):
-        # işlem başladığındaki zamanı alıyoruz
+        # timing
         baslangic = time.time()
         results, words = self.getmatchingpages(q)
-        # aranılan kelime indexte yoksa bilgi verip çıkıyoruz
+        # If the search word is not in the index, we give information and exit
         if len(results) == 0:
             print('No matching pages found!')
             return
         scores = self.getscoredlist(results, words)
         rankedscores = sorted([(score, makale) for (makale, score) in scores.items()], reverse=True)
-        # işlemler bittiğindeki zamanı alıyoruz
+        # passing time
         bitis = time.time()
-        # arama işleminin ne kadar sürdüğü ve aranan kelimelerin ne kadar makalede bulunduğu bilgisini
+        # how long the search took and how many articles the searched words were in
         print("\n{} Makale ({:.4f}sn'de) bulundu".format(len(rankedscores), bitis - baslangic))
         i = 1
-        # çıktıların istenildiği gibi verilmesi için
+        # giving outputs
         print("\nSIRA NO{}MAKALE BAŞLIĞI{} MAKALE SKORU".format('\t'*2, '\t'*35))
         print("{:<12}{:<153}{}".format('-' * 7, '-' * 148, '-' * 13))
         for (score, makale) in rankedscores:
@@ -219,39 +229,34 @@ class Tarama:
         return normalizedscores
 
     def calculatepagerank(self, iterations=20):
-        # başta atıf almış tüm makalelerin rank ini 1 eşitleyecek döngü
+        # loop to equal 1 rank of all articles cited at the beginning
         for makale in self.citationcounts:
             self.pagerank[makale] = 1.0
-        # kullanıcıya yapılacak olan işlem bilgisini veriyoruz
+       
         print("\n*** Rank Hesaplanıyor ***")
-        # doğru rank i hesaplamak için istenilen tekrar kadar tekrar edecek olan döngü
+        # loop to repeat the desired number of repetitions to calculate the correct rank
         for i in range(iterations):
-            # atıf almış tüm makaleleri dönderecek olan döngü
+            # The loop that will return all cited articles
             for makale in self.citationcounts:
                 pr = 0.15
-                # atıf yapan tüm makaleleri çekiyoruz
+                # pull all articles referring to
                 atif_yapan_makaleler = self.citations.get(makale)
-                # atıf yapan makaleye de atıf yapılmışsa rank i ona göre değerlendiriyoruz
+                # If the article referring is also cited, we evaluate the rank accordingly.
                 for atif_yapan_makale in atif_yapan_makaleler:
                     if atif_yapan_makale in self.citationcounts:
                         linkingpr = self.pagerank[atif_yapan_makale]
                         yapilan_atif_sayisi = self.citationcounts[atif_yapan_makale]
                         pr += 0.85 * (linkingpr / yapilan_atif_sayisi)
-                # makalenin rank sonucunu sözlüğüne kaydediyor
+                # the article's rank result to the dictionary
                 self.pagerank[makale] = pr
-        # kullanıcıya yapılan işlemin sonlandığı bilgisini veriyoruz
+        
         print("\n*** Rank Hesaplandı ***")
 
-
-# t = Tarama()
-# t.query("gravity")
-# print("sözlük kapatılıyor")
-# t.close()
-
-
-#    ******************************************** YORUM SORUSU *********************************************************
-#    mysearchengine, links sözlüğünün value'larını(sayfadan çıkan linklerin) bir sözlükte veya set'te saklanmasındaki
-#    amaç; girilen sayfadan bulunan linklerin, tekrar tekrar geçiyor olabileciğini, bununda işlem tekrarlarına neden
-#    olacağını öngördüğümüz ve buna engel olmak için, set veya sözlük kullanmamız gerekiyordu. Ancak citations
-#    sözlüğünde; bir makale, başka bir makaleye birden fazla atıf yapmayacağından value'ları sözlükte veya set'te
-#    tutmamıza gerek yok, her makale için atıf yaptığı makaleleri(value'ları) bir listede tutmamız yeterli olacaktır.
+def main():
+    t = Tarama()
+    t.query("gravity")
+    print("sözlük kapatılıyor")
+    t.close()
+    
+if __name__ == '__main__':
+    main()
