@@ -6,16 +6,13 @@ import re
 
 class Tarama:
     def __init__(self):
-        # ekrana istenildiği gibi makale adlarını yazdırmak için {makaleno1:'makaleadı1',...}
+        ## {makaleno1:'makaleadı1', makaleno2:'makaleadı2'...}
         self.makaleno_makaleadi = {}
-        # işlemler için kullanılacak olan sözlükler
         self.wordlocation = {}
         self.citations = {}
         self.citationcounts = {}
         self.pagerank = {}
-        # dosyaları tek tek okuyabilmek için
         self.files = []
-        # konsolda fonksiyonları tek tek çağırmamak için
         self.indexleme()
         self.calculatepagerank()
         # # {word:{makale:[loc1, loc2, ..., locN]}}
